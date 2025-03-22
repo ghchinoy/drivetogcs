@@ -27,7 +27,7 @@ Documentation is [here](https://developers.google.com/identity/protocols/oauth2)
 export PROJECT_ID=$(gcloud config get project)
 export GOOGLE_CREDENTIALS=PATH_TO_JSON
 
-go run *.go --folder 1bnr_UFzNpTTagFUGc8t9EIbpCi6QHe-j --gcs-path vto/garments
+go run *.go --folder 1bnr_UFzNpTTagFUGc8t9EIbpCi6QHe-j --gcs-bucket my-bucket --gcs-path vto/garments
 ```
 
 ## Flags
