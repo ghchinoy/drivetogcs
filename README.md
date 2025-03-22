@@ -39,4 +39,5 @@ go run *.go --folder 1bnr_UFzNpTTagFUGc8t9EIbpCi6QHe-j --gcs-bucket my-bucket --
 * `gcs-bucket`: optional, the target Google Cloud Storage bucket, it defaults to gs://$PROJECT_ID-media
 * `gcs-path`: optional, the folder within the Google Cloud Storage bucket; if used, this should not begin with a `/`
 * `always-upload`: optional, uploads the file to Google Cloud Storage, regardless of whether it exists in the target bucket; the default is false: it'll check if the file exists and skip uploading
+* `description`: optional, defaults to `true` - describes the media with Gemini
 * `prompt`: optional, prompt template to use; by default, it uses the built in prompt template that describes the media downloaded
