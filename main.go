@@ -28,7 +28,7 @@ var sourceFolderID string
 var localFolderName string = "local"
 var maxFiles int
 
-var projectID string = "genai-blackbelt-fishfooding"
+var projectID string
 var location string = "us-central1"
 var model string = "gemini-2.0-flash"
 
@@ -36,6 +36,7 @@ var gcsBucket string
 var gcsFolderPath string
 var alwaysUploadToGCS bool
 
+var createDescription bool
 var customPromptLocation string
 
 var mimeTypes []string
@@ -57,6 +58,7 @@ func init() {
 	flag.StringVar(&gcsFolderPath, "gcs-path", "", "GCS path")
 	flag.BoolVar(&alwaysUploadToGCS, "always-upload", false, "always upload to GCS")
 
+	flag.BoolVar(&createDescription, "describe", true, "describe the asset using Gemini")
 	flag.StringVar(&customPromptLocation, "prompt", "", "a custom prompt template to use")
 
 	mimeTypesFlag := flag.String("mime-types", "image/jpeg,image/png", "Comma-separated list of MIME types")
@@ -139,13 +141,13 @@ func main() {
 		wg.Add(1)
 		go func(file drive.File) {
 			defer wg.Done()
-			description, err := describe(ctx, file)
+			description, size, err := describe(ctx, file)
 			if err != nil {
 				description = fmt.Sprintf("Error: %v", err) // Store error in description
 			}
 			record := []string{
 				file.Name,
-				fmt.Sprintf("%d", file.Size),
+				fmt.Sprintf("%d", size),
 				file.MimeType,
 				file.Id,
 				description,
@@ -170,6 +172,8 @@ func listFiles(ctx context.Context, folderID string, mimeTypes []string) []drive
 	// ref https://developers.google.com/drive/api/guides/search-files
 	//query := "mimeType = 'image/jpeg'"
 	//query := "name contains '.jpg'"
+	//query := fmt.Sprintf("'%s' in parents and mimeType contains 'image' and (name contains '.jpg' or name contains '.png')", folderID)
+
 	// Build the mimeType portion of the query.
 	mimeQueryParts := make([]string, len(mimeTypes))
 	for i, mimeType := range mimeTypes {
@@ -180,7 +184,6 @@ func listFiles(ctx context.Context, folderID string, mimeTypes []string) []drive
 	// Build the full query.
 	query := fmt.Sprintf("'%s' in parents and (%s)", folderID, mimeQuery)
 
-	//query := fmt.Sprintf("'%s' in parents and mimeType contains 'image' and (name contains '.jpg' or name contains '.png')", folderID)
 	fileList, err := driveSrv.Files.List().
 		PageSize(1000).
 		Q(query).
@@ -197,66 +200,76 @@ func listFiles(ctx context.Context, folderID string, mimeTypes []string) []drive
 		}
 	}
 	return found
-
 }
 
 // describe describes an image given an image file from drive
-func describe(ctx context.Context, imageFile drive.File) (string, error) {
-	log.Printf("Describing %s ...", imageFile.Name)
-
-	var tmpl *template.Template
-
-	if customPromptLocation != "" {
-		var err error
-		tmpl, err = template.ParseFiles(customPromptLocation)
-		if err != nil {
-			return "", fmt.Errorf("failed to parse custom template: %w", err)
-		}
-	} else {
-		tmpl = template.Must(
-			template.New("describe_media.tpl").ParseFS(promptTemplates, "prompts/describe_media.tpl"),
-		)
-	}
-	data := struct {
-		ImageName string
-	}{
-		imageFile.Name,
-	}
-	buf := new(bytes.Buffer)
-	err := tmpl.Execute(buf, data)
-	if err != nil {
-		return "", err
-	}
-	prompt := buf.String()
-
+func describe(ctx context.Context, imageFile drive.File) (string, int, error) {
 	// obtain file
 	fileBytes, err := getFileBytes(imageFile)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
+	log.Printf("Obtained file bytes %s (%d)", imageFile.Name, len(fileBytes))
+
+	// upload file to Google Cloud Storage
 	err = uploadFileToGCS(ctx, gcsBucket, gcsFolderPath, imageFile.Name, fileBytes, alwaysUploadToGCS)
 	if err != nil {
 		log.Printf("Unable to upload to GCS")
 	}
+	byteCount := len(fileBytes)
 
-	//
-	contents := []*genai.Content{}
-	contents = append(contents, genai.NewUserContentFromBytes(fileBytes, imageFile.MimeType))
-	contents = append(contents, genai.Text(prompt)...)
+	// Describe using Gemini multimodal
+	var descriptionText string
 
-	config := &genai.GenerateContentConfig{}
-	description, err := genaiClient.Models.GenerateContent(
-		ctx, model,
-		contents,
-		config,
-	)
-	if err != nil {
-		log.Printf("unable to generate content: %v", err)
-		log.Printf("prompt: %s", prompt)
-		return "", nil
+	if createDescription {
+		log.Printf("Describing %s ...", imageFile.Name)
+
+		var tmpl *template.Template
+
+		if customPromptLocation != "" {
+			var err error
+			tmpl, err = template.ParseFiles(customPromptLocation)
+			if err != nil {
+				return "", 0, fmt.Errorf("failed to parse custom template: %w", err)
+			}
+		} else {
+			tmpl = template.Must(
+				template.New("describe_media.tpl").ParseFS(promptTemplates, "prompts/describe_media.tpl"),
+			)
+		}
+		data := struct {
+			ImageName string
+		}{
+			imageFile.Name,
+		}
+		buf := new(bytes.Buffer)
+		err = tmpl.Execute(buf, data)
+		if err != nil {
+			return "", 0, err
+		}
+		prompt := buf.String()
+
+		contents := []*genai.Content{}
+		contents = append(contents, genai.NewUserContentFromBytes(fileBytes, imageFile.MimeType))
+		contents = append(contents, genai.Text(prompt)...)
+
+		config := &genai.GenerateContentConfig{}
+		description, err := genaiClient.Models.GenerateContent(
+			ctx, model,
+			contents,
+			config,
+		)
+		if err != nil {
+			log.Printf("unable to generate content: %v", err)
+			log.Printf("prompt: %s", prompt)
+			return "", 0, nil
+		}
+		descriptionText = description.Text()
+	} else {
+		descriptionText = "Description skipped"
 	}
 
-	return description.Text(), nil
+	return descriptionText, byteCount, nil
 }
 
 // getFileBytes retrieves a file from Drive
@@ -265,7 +278,6 @@ func getFileBytes(file drive.File) ([]byte, error) {
 
 	// Download the file
 	call := driveSrv.Files.Get(file.Id)
-	//call.Alt("media") // Use alt=media to get the file content
 
 	resp, err := call.Download()
 	if err != nil {
@@ -325,7 +337,7 @@ func uploadFileToGCS(ctx context.Context, bucketName, folderPath, objectName str
 	if !override {
 		_, err = client.Bucket(bucketName).Object(objectPath).Attrs(ctx)
 		if err == nil {
-			log.Printf("File '%s' already exists in GCS. Skipping upload.\n", objectPath)
+			log.Printf("File '%s' already exists in GCS %s. Skipping upload.\n", objectPath, bucketName)
 			return nil // Object exists, return nil error
 		} else if err != storage.ErrObjectNotExist {
 			return fmt.Errorf("failed to check object existence: %v", err) // Unexpected error
@@ -356,16 +368,4 @@ func createGenaiClient(ctx context.Context) (*genai.Client, error) {
 		return nil, err
 	}
 	return client, nil
-}
-
-func strtointerf(data [][]string) [][]interface{} {
-	var arrayface [][]interface{}
-	for _, d := range data {
-		ia := make([]interface{}, len(d))
-		for i, v := range d {
-			ia[i] = v
-		}
-		arrayface = append(arrayface, ia)
-	}
-	return arrayface
 }
