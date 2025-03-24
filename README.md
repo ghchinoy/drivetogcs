@@ -2,6 +2,21 @@
 
 This is a command-line tool that, given a Drive folder, lists specific mime-type files (.png & .jpg by default) within the Drive folder, downloads them locally, uploads them to a designated Google Cloud Storage bucket, and describes them with Gemini.
 
+## Installation
+
+If you have [Go](https://go.dev/) installed, you can install this tool like this:
+
+```
+go install github.com/ghchinoy/drivetogcs@latest
+```
+
+### From Source
+
+Clone the git repo and build with [Go](https://go.dev/):
+
+```
+go build
+```
 
 ## Prerequisites
 
