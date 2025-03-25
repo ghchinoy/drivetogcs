@@ -62,9 +62,11 @@ func init() {
 	flag.StringVar(&customPromptLocation, "prompt", "", "a custom prompt template to use")
 
 	mimeTypesFlag := flag.String("mime-types", "image/jpeg,image/png", "Comma-separated list of MIME types")
-	mimeTypes = strings.Split(*mimeTypesFlag, ",")
 
 	flag.Parse()
+
+	mimeTypes = strings.Split(*mimeTypesFlag, ",")
+	log.Printf("mime-types: %s", mimeTypes)
 }
 
 func main() {
@@ -97,7 +99,7 @@ func main() {
 	// Initialize Drive Service
 	b, err := os.ReadFile(credentials)
 	if err != nil {
-		panic(err)
+		log.Fatalf("cannot find credentials file %s: %v", credentials, err)
 	}
 	config, err := google.ConfigFromJSON(b, "https://www.googleapis.com/auth/drive")
 	if err != nil {
@@ -118,7 +120,11 @@ func main() {
 
 	//mimeTypes := []string{"image/jpeg", "image/png", "image/webp"}
 	fileList := listFiles(ctx, sourceFolderID, mimeTypes)
-	log.Printf("Files %d", len(fileList))
+	if maxFiles != 0 {
+		log.Printf("Files %d (max: %d)", len(fileList), maxFiles)
+	} else {
+		log.Printf("Files %d", len(fileList))
+	}
 
 	var wg sync.WaitGroup
 
@@ -214,7 +220,7 @@ func describe(ctx context.Context, imageFile drive.File) (string, int, error) {
 	// upload file to Google Cloud Storage
 	err = uploadFileToGCS(ctx, gcsBucket, gcsFolderPath, imageFile.Name, fileBytes, alwaysUploadToGCS)
 	if err != nil {
-		log.Printf("Unable to upload to GCS")
+		log.Printf("Unable to upload to GCS: %v", err)
 	}
 	byteCount := len(fileBytes)
 
