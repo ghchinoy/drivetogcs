@@ -6,6 +6,7 @@ import (
 	"embed"
 	_ "embed"
 	"encoding/csv"
+	"errors"
 	"flag"
 	"fmt"
 	"html/template"
@@ -22,6 +23,8 @@ import (
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/option"
 	"google.golang.org/genai"
+
+	"google.golang.org/api/googleapi"
 )
 
 var sourceFolderID string
@@ -345,8 +348,19 @@ func uploadFileToGCS(ctx context.Context, bucketName, folderPath, objectName str
 		if err == nil {
 			log.Printf("File '%s' already exists in GCS %s. Skipping upload.\n", objectPath, bucketName)
 			return nil // Object exists, return nil error
-		} else if err != storage.ErrObjectNotExist {
-			return fmt.Errorf("failed to check object existence: %v", err) // Unexpected error
+		}
+
+		var gerr *googleapi.Error
+		if errors.As(err, &gerr) { // Use errors.As to check for the googleapi.Error type
+			if gerr.Code == http.StatusNotFound { // Check for 404 Not Found
+				// Bucket or Object does not exist, proceed
+			} else {
+				return fmt.Errorf("failed to check object existence: %v", err) // Other googleapi error
+			}
+		} else if errors.Is(err, storage.ErrObjectNotExist) {
+			// Object does not exist. proceed
+		} else {
+			return fmt.Errorf("failed to check object exisitence: %v", err)
 		}
 	}
 
