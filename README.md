@@ -28,7 +28,7 @@ Two environment variables are necessary
 ### Google Cloud Credentials
 To obtain an OAuth 2.0 Client ID, go to your Google Cloud Console and to the API & Services > Credentials page to Create Credentials for an OAuth client ID that's a Desktop application type. 
 
-This credential will be used to open a web page authorization and then store a temporary token locally so that the application can access Drive on your behalf.
+This credential will be used to open a web page authorization and then store a temporary token locally so that the application can access Drive on your behalf. Or, if you choose to use the `manual-auth` flag, you will be presented with an URL to open to obtain then paste a code.
 
 Store the JSON locally. Set the `GOOGLE_CREDENTIALS` environment variable to the path to the JSON. **DO NOT** check this file in to any code repository - keep it private. 
 
@@ -56,3 +56,6 @@ go run *.go --folder 1bnr_UFzNpTTagFUGc8t9EIbpCi6QHe-j --gcs-bucket my-bucket --
 * `always-upload`: optional, uploads the file to Google Cloud Storage, regardless of whether it exists in the target bucket; the default is false: it'll check if the file exists and skip uploading
 * `description`: optional, defaults to `true` - describes the media with Gemini
 * `prompt`: optional, prompt template to use; by default, it uses the built in prompt template that describes the media downloaded
+* `manual-auth`: optional, defaults to false; a manual auth requires you to open a browser URL, obtain a code, and paste it back in to the command line; default or setting this false opens a browser for you and obtains the code.
+
+

@@ -15,15 +15,20 @@ import (
 )
 
 // Retrieve a token, saves the token, then returns the generated client.
-func getClient(config *oauth2.Config) *http.Client {
+func getClient(config *oauth2.Config, manualAuth bool) *http.Client {
 	// The file token.json stores the user's access and refresh tokens, and is
 	// created automatically when the authorization flow completes for the first
 	// time.
 	tokFile := "token.json"
 	tok, err := tokenFromFile(tokFile)
 	if err != nil {
-		tok = getTokenFromWebLaunch(config)
-		saveToken(tokFile, tok)
+		if !manualAuth {
+			tok = getTokenFromWebLaunch(config)
+			saveToken(tokFile, tok)
+		} else {
+			tok = getTokenFromWeb(config)
+			saveToken(tokFile, tok)
+		}
 	}
 	return config.Client(context.Background(), tok)
 }

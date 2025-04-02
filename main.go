@@ -35,6 +35,8 @@ var projectID string
 var location string = "us-central1"
 var model string = "gemini-2.0-flash"
 
+var manualAuth bool
+
 var gcsBucket string
 var gcsFolderPath string
 var alwaysUploadToGCS bool
@@ -63,6 +65,8 @@ func init() {
 
 	flag.BoolVar(&createDescription, "describe", true, "describe the asset using Gemini")
 	flag.StringVar(&customPromptLocation, "prompt", "", "a custom prompt template to use")
+
+	flag.BoolVar(&manualAuth, "manual-auth", false, "manual authentication")
 
 	mimeTypesFlag := flag.String("mime-types", "image/jpeg,image/png", "Comma-separated list of MIME types")
 
@@ -108,7 +112,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to parse client secret file to config: %v", err)
 	}
-	client := getClient(config)
+	client := getClient(config, manualAuth)
 
 	driveSrv, err = drive.NewService(ctx, option.WithHTTPClient(client))
 	if err != nil {
