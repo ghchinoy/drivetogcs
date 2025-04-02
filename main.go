@@ -66,7 +66,7 @@ func init() {
 	flag.BoolVar(&createDescription, "describe", true, "describe the asset using Gemini")
 	flag.StringVar(&customPromptLocation, "prompt", "", "a custom prompt template to use")
 
-	flag.BoolVar(&manualAuth, "manual-auth", false, "manual authentication")
+	flag.BoolVar(&manualAuth, "no-launch-browser", false, "manual authentication - prevents the command from automatically opening a web browser")
 
 	mimeTypesFlag := flag.String("mime-types", "image/jpeg,image/png", "Comma-separated list of MIME types")
 

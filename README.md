@@ -56,6 +56,6 @@ go run *.go --folder 1bnr_UFzNpTTagFUGc8t9EIbpCi6QHe-j --gcs-bucket my-bucket --
 * `always-upload`: optional, uploads the file to Google Cloud Storage, regardless of whether it exists in the target bucket; the default is false: it'll check if the file exists and skip uploading
 * `description`: optional, defaults to `true` - describes the media with Gemini
 * `prompt`: optional, prompt template to use; by default, it uses the built in prompt template that describes the media downloaded
-* `manual-auth`: optional, defaults to false; a manual auth requires you to open a browser URL, obtain a code, and paste it back in to the command line; default or setting this false opens a browser for you and obtains the code.
+* `no-launch-browser`: optional, defaults to false; prevents the command from automatically opening a web browser. This requires you to open a browser URL, obtain a code, and paste it back in to the command line; default or setting this false opens a browser for you and obtains the code.
 
 
